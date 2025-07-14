@@ -1,0 +1,87 @@
+---
+- name: Stage 5 - Cluster Initialization
+  hosts: first_master
+  become: yes
+  vars:
+    vip: "10.10.7.236"
+    k8s_version: "1.32.4"
+    cluster_name: "topgun"
+    pod_subnet: "10.244.0.0/16"
+    service_subnet: "10.96.0.0/16"
+    
+  tasks:
+    - name: Create kubeadm config
+      template:
+        src: templates/init-config.yaml.j2
+        dest: /tmp/init-config.yaml
+      vars:
+        advertise_address: "{{ node_ip }}"
+        hostname: "{{ inventory_hostname }}"
+        
+    - name: Initialize Kubernetes cluster
+      command: kubeadm init --upload-certs --config=/tmp/init-config.yaml
+      register: kubeadm_init_result
+      
+    - name: Create .kube directory for root
+      file:
+        path: /root/.kube
+        state: directory
+        
+    - name: Copy admin.conf to root's kube config
+      copy:
+        src: /etc/kubernetes/admin.conf
+        dest: /root/.kube/config
+        remote_src: yes
+        
+    - name: Create .kube directory for ansible user
+      file:
+        path: /home/{{ ansible_user }}/.kube
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+      when: ansible_user != 'root'
+        
+    - name: Copy admin.conf to ansible user's kube config
+      copy:
+        src: /etc/kubernetes/admin.conf
+        dest: /home/{{ ansible_user }}/.kube/config
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        remote_src: yes
+      when: ansible_user != 'root'
+        
+    - name: Extract join command for masters
+      set_fact:
+        master_join_command: "{{ kubeadm_init_result.stdout | regex_search('kubeadm join.*--control-plane --certificate-key [a-f0-9]+', multiline=True) }}"
+        
+    - name: Extract join command for workers
+      set_fact:
+        worker_join_command: "{{ kubeadm_init_result.stdout | regex_search('kubeadm join [0-9.:]+.*--discovery-token-ca-cert-hash sha256:[a-f0-9]+') }}"
+        
+    - name: Save join commands to file
+      copy:
+        content: |
+          Master join command:
+          {{ master_join_command }}
+          
+          Worker join command:
+          {{ worker_join_command }}
+        dest: /tmp/join-commands.txt
+        
+    - name: Display join commands
+      debug:
+        msg: |
+          Master join command: {{ master_join_command }}
+          Worker join command: {{ worker_join_command }}
+          
+    - name: Fix kube-vip manifest permissions
+      replace:
+        path: /etc/kubernetes/manifests/kube-vip.yaml
+        regexp: 'path: /etc/kubernetes/super-admin.conf'
+        replace: 'path: /etc/kubernetes/admin.conf'
+        
+    - name: Restart kubelet
+      systemd:
+        name: kubelet
+        state: restarted
+        daemon_reload: yes

@@ -1,0 +1,28 @@
+---
+- name: Stage 8 - Join Worker Nodes
+  hosts: workers
+  become: yes
+  tasks:
+    - name: Wait for control plane to be ready
+      wait_for:
+        port: 6443
+        host: "10.10.7.236"
+        delay: 10
+        timeout: 300
+        
+    - name: Join worker nodes
+      command: "{{ hostvars['master-01']['worker_join_command'] }}"
+      register: join_result
+      until: join_result.rc == 0
+      retries: 3
+      delay: 30
+      
+    - name: Verify worker node joined
+      shell: kubectl get nodes {{ inventory_hostname }}
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      delegate_to: master-01
+      register: node_status
+      until: node_status.rc == 0
+      retries: 10
+      delay: 30

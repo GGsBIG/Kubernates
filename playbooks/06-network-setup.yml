@@ -1,0 +1,35 @@
+---
+- name: Stage 6 - Network Setup (Calico)
+  hosts: first_master
+  become: yes
+  tasks:
+    - name: Wait for API server to be ready
+      wait_for:
+        port: 6443
+        host: "{{ ansible_default_ipv4.address }}"
+        delay: 10
+        timeout: 300
+        
+    - name: Deploy Calico
+      shell: |
+        curl -sL https://raw.githubusercontent.com/projectcalico/calico/v3.29.4/manifests/calico.yaml | kubectl apply -f -
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+        
+    - name: Wait for Calico pods to be ready
+      shell: kubectl get pods -n kube-system -l k8s-app=calico-node --no-headers | grep -v Running | wc -l
+      register: calico_pods_not_ready
+      until: calico_pods_not_ready.stdout == "0"
+      retries: 30
+      delay: 10
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+        
+    - name: Wait for CoreDNS pods to be ready
+      shell: kubectl get pods -n kube-system -l k8s-app=kube-dns --no-headers | grep -v Running | wc -l
+      register: coredns_pods_not_ready
+      until: coredns_pods_not_ready.stdout == "0"
+      retries: 30
+      delay: 10
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf

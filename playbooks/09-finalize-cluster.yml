@@ -1,0 +1,89 @@
+---
+- name: Stage 9 - Finalize Cluster
+  hosts: first_master
+  become: yes
+  tasks:
+    - name: Wait for all nodes to be ready
+      shell: kubectl get nodes --no-headers | grep -v Ready | wc -l
+      register: nodes_not_ready
+      until: nodes_not_ready.stdout == "0"
+      retries: 30
+      delay: 10
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+        
+    - name: Label worker nodes
+      command: kubectl label node {{ item }} node-role.kubernetes.io/worker= --overwrite
+      loop:
+        - worker-01
+        - worker-02
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      ignore_errors: yes
+      
+    - name: Get cluster status
+      shell: kubectl get nodes -o wide
+      register: cluster_status
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+        
+    - name: Display cluster status
+      debug:
+        msg: "{{ cluster_status.stdout_lines }}"
+        
+    - name: Get all pods status
+      shell: kubectl get pods -A
+      register: pods_status
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+        
+    - name: Display pods status
+      debug:
+        msg: "{{ pods_status.stdout_lines }}"
+        
+    - name: Create cluster info file
+      copy:
+        content: |
+          Kubernetes Cluster Information
+          =============================
+          
+          Cluster Name: topgun
+          VIP Address: 10.10.7.236
+          Pod Subnet: 10.244.0.0/16
+          Service Subnet: 10.96.0.0/16
+          
+          Master Nodes:
+          - master-01: 10.10.7.230
+          - master-02: 10.10.7.231
+          - master-03: 10.10.7.232
+          
+          Worker Nodes:
+          - worker-01: 10.10.7.233
+          - worker-02: 10.10.7.234
+          
+          Access Instructions:
+          ===================
+          1. Copy kubeconfig from master-01:/etc/kubernetes/admin.conf
+          2. Set KUBECONFIG environment variable
+          3. Run: kubectl get nodes
+          
+          Cluster Status:
+          {{ cluster_status.stdout }}
+        dest: /tmp/cluster-info.txt
+        
+    - name: Display completion message
+      debug:
+        msg: |
+          ==========================================
+          Kubernetes Cluster Setup Complete!
+          ==========================================
+          
+          Cluster is ready for use.
+          Kubeconfig location: /etc/kubernetes/admin.conf
+          
+          Next steps:
+          1. Copy kubeconfig to your local machine
+          2. Install additional applications (ingress, storage, etc.)
+          3. Configure monitoring and logging
+          
+          ==========================================

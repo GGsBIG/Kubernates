@@ -1,0 +1,56 @@
+---
+- name: Stage 3 - Kubernetes Installation
+  hosts: k8s_cluster
+  become: yes
+  tasks:
+    - name: Add Kubernetes GPG key
+      apt_key:
+        url: https://pkgs.k8s.io/core:/stable:/v1.32/deb/Release.key
+        keyring: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+        state: present
+        
+    - name: Add Kubernetes repository
+      apt_repository:
+        repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.32/deb/ /"
+        state: present
+        filename: kubernetes
+        
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        
+    - name: Install Kubernetes packages on masters
+      apt:
+        name:
+          - kubelet=1.32.4-1.1
+          - kubeadm=1.32.4-1.1
+          - kubectl=1.32.4-1.1
+        state: present
+      when: inventory_hostname in groups['masters']
+        
+    - name: Install Kubernetes packages on workers
+      apt:
+        name:
+          - kubelet=1.32.4-1.1
+          - kubeadm=1.32.4-1.1
+        state: present
+      when: inventory_hostname in groups['workers']
+        
+    - name: Hold Kubernetes packages
+      dpkg_selections:
+        name: "{{ item }}"
+        selection: hold
+      loop:
+        - kubelet
+        - kubeadm
+        - kubectl
+      when: inventory_hostname in groups['masters']
+        
+    - name: Hold Kubernetes packages on workers
+      dpkg_selections:
+        name: "{{ item }}"
+        selection: hold
+      loop:
+        - kubelet
+        - kubeadm
+      when: inventory_hostname in groups['workers']
