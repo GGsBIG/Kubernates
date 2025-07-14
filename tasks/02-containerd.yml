@@ -57,6 +57,12 @@
     regexp: 'SystemdCgroup = false'
     replace: 'SystemdCgroup = true'
 
+- name: Enable CRI plugin in containerd
+  replace:
+    path: /etc/containerd/config.toml
+    regexp: 'disabled_plugins = \["cri"\]'
+    replace: 'disabled_plugins = []'
+
 - name: Restart and enable containerd
   systemd:
     name: containerd
