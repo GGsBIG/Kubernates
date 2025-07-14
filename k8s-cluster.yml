@@ -4,7 +4,6 @@
   become: yes
   gather_facts: yes
   vars:
-    k8s_version: "{{ k8s_version }}"
     control_plane_endpoint: "{{ control_plane_endpoint }}"
     pod_network_cidr: "{{ pod_network_cidr }}"
     service_cidr: "{{ service_cidr }}"
