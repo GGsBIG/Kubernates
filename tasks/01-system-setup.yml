@@ -1,4 +1,37 @@
 ---
+# 設定台灣時區
+- name: Set timezone to Asia/Taipei
+  timezone:
+    name: Asia/Taipei
+
+# 安裝 chrony 校時服務
+- name: Install chrony for time synchronization
+  apt:
+    name: chrony
+    state: present
+    update_cache: yes
+
+- name: Configure chrony to use Google NTP
+  blockinfile:
+    path: /etc/chrony/chrony.conf
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - Google NTP"
+    block: |
+      server time.google.com prefer
+    insertafter: "^pool.*"
+
+- name: Comment out default NTP pools
+  replace:
+    path: /etc/chrony/chrony.conf
+    regexp: '^(pool.*ubuntu.*$)'
+    replace: '#\1'
+
+- name: Enable and restart chrony
+  systemd:
+    name: chrony
+    enabled: yes
+    state: restarted
+    daemon_reload: yes
+
 - name: Update system packages
   apt:
     update_cache: yes

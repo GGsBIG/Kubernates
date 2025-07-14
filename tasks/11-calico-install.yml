@@ -1,0 +1,62 @@
+---
+# 部署 Calico CNI 網絡插件 (僅在第一個 master 節點執行)
+- name: Download Calico manifest
+  get_url:
+    url: "https://raw.githubusercontent.com/projectcalico/calico/{{ calico_version }}/manifests/calico.yaml"
+    dest: /tmp/calico.yaml
+    mode: '0644'
+  when: inventory_hostname == groups['masters'][0]
+
+- name: Apply Calico CNI network plugin
+  kubernetes.core.k8s:
+    state: present
+    src: /tmp/calico.yaml
+    kubeconfig: /root/.kube/config
+  when: inventory_hostname == groups['masters'][0]
+  register: calico_result
+
+- name: Wait for Calico pods to be ready
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    namespace: kube-system
+    label_selectors:
+      - "k8s-app=calico-node"
+    kubeconfig: /root/.kube/config
+    wait: true
+    wait_condition:
+      type: Ready
+      status: "True"
+    wait_timeout: 300
+  when: inventory_hostname == groups['masters'][0]
+
+- name: Wait for CoreDNS pods to be ready
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    namespace: kube-system
+    label_selectors:
+      - "k8s-app=kube-dns"
+    kubeconfig: /root/.kube/config
+    wait: true
+    wait_condition:
+      type: Ready
+      status: "True"
+    wait_timeout: 300
+  when: inventory_hostname == groups['masters'][0]
+
+- name: Verify all system pods are running
+  shell: kubectl get pods -n kube-system --kubeconfig=/root/.kube/config
+  register: system_pods
+  when: inventory_hostname == groups['masters'][0]
+
+- name: Display system pods status
+  debug:
+    var: system_pods.stdout_lines
+  when: inventory_hostname == groups['masters'][0]
+
+- name: Clean up Calico manifest
+  file:
+    path: /tmp/calico.yaml
+    state: absent
+  when: inventory_hostname == groups['masters'][0]

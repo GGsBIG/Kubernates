@@ -18,6 +18,20 @@
     - name: Include Kubernetes installation tasks
       include_tasks: tasks/03-kubernetes.yml
 
+- name: Setup kube-vip on master nodes
+  hosts: masters
+  become: yes
+  tasks:
+    - name: Include kube-vip setup tasks
+      include_tasks: tasks/09-kube-vip-setup.yml
+
+- name: Create kubeadm init config on first master
+  hosts: masters[0]
+  become: yes
+  tasks:
+    - name: Include kubeadm init config tasks
+      include_tasks: tasks/10-kubeadm-init-config.yml
+
 - name: Setup HAProxy Load Balancer
   hosts: loadbalancer
   become: yes
@@ -31,6 +45,13 @@
   tasks:
     - name: Include cluster initialization tasks
       include_tasks: tasks/05-cluster-init.yml
+
+- name: Install Calico CNI Network Plugin
+  hosts: masters[0]
+  become: yes
+  tasks:
+    - name: Include Calico installation tasks
+      include_tasks: tasks/11-calico-install.yml
 
 - name: Join additional master nodes
   hosts: masters[1:]
@@ -46,9 +67,9 @@
     - name: Include worker join tasks
       include_tasks: tasks/07-worker-join.yml
 
-- name: Install CNI Network Plugin
+- name: Configure node labels and final setup
   hosts: masters[0]
   become: yes
   tasks:
-    - name: Include CNI installation tasks
-      include_tasks: tasks/08-cni-install.yml
+    - name: Include node labels setup
+      include_tasks: tasks/12-node-labels.yml

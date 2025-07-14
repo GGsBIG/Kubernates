@@ -1,17 +1,12 @@
 ---
-- name: Initialize Kubernetes cluster on first master
-  shell: |
-    kubeadm init \
-      --control-plane-endpoint="{{ control_plane_endpoint }}" \
-      --upload-certs \
-      --apiserver-advertise-address={{ ansible_default_ipv4.address }} \
-      --pod-network-cidr={{ pod_network_cidr }} \
-      --service-cidr={{ service_cidr }} \
-      --cri-socket=unix:///var/run/containerd/containerd.sock
+# 初始化 Kubernetes 集群 (使用配置文件)
+- name: Initialize Kubernetes cluster with config file
+  command: kubeadm init --upload-certs --config=/tmp/init-config.yaml
   args:
     creates: /etc/kubernetes/admin.conf
   register: kubeadm_init_result
 
+# 設定 kubeconfig
 - name: Create .kube directory for root
   file:
     path: /root/.kube
@@ -44,6 +39,28 @@
     group: "{{ ansible_user }}"
     mode: '0644'
 
+# 修復 kube-vip 權限 (k8s 1.29+ 需要)
+- name: Revert kube-vip config after cluster init
+  replace:
+    path: /etc/kubernetes/manifests/kube-vip.yaml
+    regexp: 'path: /etc/kubernetes/super-admin.conf'
+    replace: 'path: /etc/kubernetes/admin.conf'
+
+- name: Restart kubelet after kube-vip config change
+  systemd:
+    name: kubelet
+    state: restarted
+    daemon_reload: yes
+
+# 等待 API server 就緒
+- name: Wait for API server to be ready
+  wait_for:
+    port: 6443
+    host: "{{ ansible_default_ipv4.address }}"
+    delay: 30
+    timeout: 300
+
+# 獲取加入命令
 - name: Get worker node join command
   shell: kubeadm token create --print-join-command
   register: worker_join_command
