@@ -1,6 +1,6 @@
 ---
 - name: Stage 2 - Container Runtime Setup
-  hosts: k8s_cluster
+  hosts: k8s_nodes
   become: yes
   tasks:
     - name: Download containerd

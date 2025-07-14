@@ -1,22 +1,22 @@
 apiVersion: kubeadm.k8s.io/v1beta3
 kind: InitConfiguration
 localAPIEndpoint:
-  advertiseAddress: {{ advertise_address }}
+  advertiseAddress: {{ ansible_default_ipv4.address }}
   bindPort: 6443
 nodeRegistration:
   criSocket: unix:///run/containerd/containerd.sock
   imagePullPolicy: IfNotPresent
-  name: {{ hostname }}
+  name: {{ inventory_hostname }}
   taints: null
 ---
 apiVersion: kubeadm.k8s.io/v1beta3
 kind: ClusterConfiguration
-kubernetesVersion: {{ k8s_version }}
-controlPlaneEndpoint: {{ vip }}:6443
+kubernetesVersion: {{ k8s_version }}.4
+controlPlaneEndpoint: {{ control_plane_endpoint }}
 apiServer:
   timeoutForControlPlane: 4m0s
 certificatesDir: /etc/kubernetes/pki
-clusterName: {{ cluster_name }}
+clusterName: kubernetes
 controllerManager:
   extraArgs:
     bind-address: "0.0.0.0"
@@ -34,8 +34,8 @@ dns: {}
 imageRepository: registry.k8s.io
 networking:
   dnsDomain: cluster.local
-  podSubnet: {{ pod_subnet }}
-  serviceSubnet: {{ service_subnet }}
+  podSubnet: {{ pod_network_cidr }}
+  serviceSubnet: {{ service_cidr }}
 ---
 apiVersion: kubeproxy.config.k8s.io/v1alpha1
 kind: KubeProxyConfiguration

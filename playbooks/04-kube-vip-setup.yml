@@ -3,8 +3,8 @@
   hosts: masters
   become: yes
   vars:
-    vip: "10.10.7.236"
-    interface: "ens18"
+    vip: "{{ kube_vip_ip }}"
+    interface: "{{ kube_vip_interface }}"
     
   tasks:
     - name: Create kubernetes manifests directory

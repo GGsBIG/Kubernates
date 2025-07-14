@@ -1,6 +1,6 @@
 ---
 - name: Stage 1 - System Setup
-  hosts: k8s_cluster
+  hosts: k8s_nodes
   become: yes
   tasks:
     - name: Set Taiwan timezone

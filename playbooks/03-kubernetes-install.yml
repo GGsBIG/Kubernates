@@ -1,6 +1,6 @@
 ---
 - name: Stage 3 - Kubernetes Installation
-  hosts: k8s_cluster
+  hosts: k8s_nodes
   become: yes
   tasks:
     - name: Add Kubernetes GPG key
