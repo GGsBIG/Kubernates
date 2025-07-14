@@ -1,0 +1,80 @@
+---
+- name: Initialize Kubernetes cluster on first master
+  shell: |
+    kubeadm init \
+      --control-plane-endpoint="{{ control_plane_endpoint }}" \
+      --upload-certs \
+      --apiserver-advertise-address={{ ansible_default_ipv4.address }} \
+      --pod-network-cidr={{ pod_network_cidr }} \
+      --service-cidr={{ service_cidr }} \
+      --cri-socket=unix:///var/run/containerd/containerd.sock
+  args:
+    creates: /etc/kubernetes/admin.conf
+  register: kubeadm_init_result
+
+- name: Create .kube directory for root
+  file:
+    path: /root/.kube
+    state: directory
+    mode: '0755'
+
+- name: Copy admin.conf to root's .kube/config
+  copy:
+    src: /etc/kubernetes/admin.conf
+    dest: /root/.kube/config
+    remote_src: yes
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Create .kube directory for ansible user
+  file:
+    path: "/home/{{ ansible_user }}/.kube"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0755'
+
+- name: Copy admin.conf to ansible user's .kube/config
+  copy:
+    src: /etc/kubernetes/admin.conf
+    dest: "/home/{{ ansible_user }}/.kube/config"
+    remote_src: yes
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0644'
+
+- name: Get worker node join command
+  shell: kubeadm token create --print-join-command
+  register: worker_join_command
+  changed_when: false
+
+- name: Get certificate key for master nodes
+  shell: kubeadm init phase upload-certs --upload-certs | tail -1
+  register: certificate_key
+  changed_when: false
+
+- name: Create master join command
+  set_fact:
+    master_join_command: "{{ worker_join_command.stdout }} --control-plane --certificate-key {{ certificate_key.stdout }}"
+
+- name: Save join commands to facts
+  set_fact:
+    k8s_worker_join_command: "{{ worker_join_command.stdout }}"
+    k8s_master_join_command: "{{ master_join_command }}"
+
+- name: Display join commands
+  debug:
+    msg: |
+      Worker join command: {{ k8s_worker_join_command }}
+      Master join command: {{ k8s_master_join_command }}
+
+- name: Store join commands in files for other plays
+  copy:
+    content: "{{ item.content }}"
+    dest: "/tmp/{{ item.filename }}"
+    mode: '0644'
+  loop:
+    - { content: "{{ k8s_worker_join_command }}", filename: "worker_join_command" }
+    - { content: "{{ k8s_master_join_command }}", filename: "master_join_command" }
+  delegate_to: localhost

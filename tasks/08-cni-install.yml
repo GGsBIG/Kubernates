@@ -1,0 +1,38 @@
+---
+- name: Wait for cluster to be ready
+  wait_for:
+    timeout: 60
+
+- name: Install Calico CNI
+  shell: kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/{{ calico_version }}/manifests/calico.yaml
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+
+- name: Wait for Calico pods to be ready
+  shell: kubectl wait --for=condition=Ready pods -l k8s-app=calico-node -n kube-system --timeout=300s
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  retries: 3
+  delay: 30
+  register: calico_pods_ready
+  until: calico_pods_ready.rc == 0
+
+- name: Verify cluster status
+  shell: kubectl get nodes -o wide
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: cluster_status
+
+- name: Display cluster status
+  debug:
+    msg: "{{ cluster_status.stdout_lines }}"
+
+- name: Verify all pods status
+  shell: kubectl get pods -A
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: pods_status
+
+- name: Display pods status
+  debug:
+    msg: "{{ pods_status.stdout_lines }}"

@@ -1,0 +1,55 @@
+---
+- name: Deploy Kubernetes High Availability Cluster
+  hosts: all
+  become: yes
+  gather_facts: yes
+  vars:
+    k8s_version: "{{ k8s_version }}"
+    control_plane_endpoint: "{{ control_plane_endpoint }}"
+    pod_network_cidr: "{{ pod_network_cidr }}"
+    service_cidr: "{{ service_cidr }}"
+
+  tasks:
+    - name: Include basic system setup tasks
+      include_tasks: tasks/01-system-setup.yml
+
+    - name: Include containerd installation tasks
+      include_tasks: tasks/02-containerd.yml
+
+    - name: Include Kubernetes installation tasks
+      include_tasks: tasks/03-kubernetes.yml
+
+- name: Setup HAProxy Load Balancer
+  hosts: loadbalancer
+  become: yes
+  tasks:
+    - name: Include HAProxy setup tasks
+      include_tasks: tasks/04-haproxy.yml
+
+- name: Initialize first master node
+  hosts: masters[0]
+  become: yes
+  tasks:
+    - name: Include cluster initialization tasks
+      include_tasks: tasks/05-cluster-init.yml
+
+- name: Join additional master nodes
+  hosts: masters[1:]
+  become: yes
+  tasks:
+    - name: Include master join tasks
+      include_tasks: tasks/06-master-join.yml
+
+- name: Join worker nodes
+  hosts: workers
+  become: yes
+  tasks:
+    - name: Include worker join tasks
+      include_tasks: tasks/07-worker-join.yml
+
+- name: Install CNI Network Plugin
+  hosts: masters[0]
+  become: yes
+  tasks:
+    - name: Include CNI installation tasks
+      include_tasks: tasks/08-cni-install.yml
