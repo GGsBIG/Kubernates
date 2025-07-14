@@ -1,18 +1,10 @@
 ---
 # 為 worker 節點添加標籤 (僅在第一個 master 節點執行)
 - name: Add worker role label to worker nodes
-  kubernetes.core.k8s:
-    state: present
-    definition:
-      apiVersion: v1
-      kind: Node
-      metadata:
-        name: "{{ item }}"
-        labels:
-          node-role.kubernetes.io/worker: ""
-    kubeconfig: /root/.kube/config
+  shell: kubectl label node {{ item }} node-role.kubernetes.io/worker= --kubeconfig=/root/.kube/config --overwrite
   loop: "{{ groups['workers'] }}"
   when: inventory_hostname == groups['masters'][0]
+  ignore_errors: yes
 
 - name: Create crictl configuration
   copy:
