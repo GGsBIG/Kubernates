@@ -77,7 +77,7 @@
 
     - name: Download CNI plugins
       get_url:
-        url: "https://github.com/containernetworking/plugins/releases/download/v1.6.1/cni-plugins-linux-amd64-v1.6.1.tgz"
+        url: "https://github.com/containernetworking/plugins/releases/download/v1.7.1/cni-plugins-linux-amd64-v1.7.1.tgz"
         dest: "~/cni-plugins.tgz"
         mode: '0644'
 
