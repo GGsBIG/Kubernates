@@ -1,6 +1,5 @@
 ---
 # Main orchestration playbook for Kubernetes cluster deployment
-- import_playbook: playbooks/00-prepare-system.yml
 - import_playbook: playbooks/01-system-setup.yml
 - import_playbook: playbooks/02-container-runtime.yml
 - import_playbook: playbooks/03-kubernetes-install.yml

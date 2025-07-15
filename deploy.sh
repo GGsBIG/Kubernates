@@ -43,7 +43,6 @@ run_stage() {
 deploy_full() {
     echo "Starting full cluster deployment..."
     
-    run_stage 0 "Prepare System" "playbooks/00-prepare-system.yml"
     run_stage 1 "System Setup" "playbooks/01-system-setup.yml"
     run_stage 2 "Container Runtime" "playbooks/02-container-runtime.yml"
     run_stage 3 "Kubernetes Install" "playbooks/03-kubernetes-install.yml"
@@ -109,7 +108,6 @@ case "${1:-}" in
         fi
         
         case "$2" in
-            0) run_stage 0 "Prepare System" "playbooks/00-prepare-system.yml" ;;
             1) run_stage 1 "System Setup" "playbooks/01-system-setup.yml" ;;
             2) run_stage 2 "Container Runtime" "playbooks/02-container-runtime.yml" ;;
             3) run_stage 3 "Kubernetes Install" "playbooks/03-kubernetes-install.yml" ;;
@@ -119,7 +117,7 @@ case "${1:-}" in
             7) run_stage 7 "Join Masters" "playbooks/07-join-masters.yml" ;;
             8) run_stage 8 "Join Workers" "playbooks/08-join-workers.yml" ;;
             9) run_stage 9 "Finalize Cluster" "playbooks/09-finalize-cluster.yml" ;;
-            *) echo "Error: Invalid stage number. Use 0-9." && exit 1 ;;
+            *) echo "Error: Invalid stage number. Use 1-9." && exit 1 ;;
         esac
         ;;
     --site)
