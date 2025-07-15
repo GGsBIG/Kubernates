@@ -5,7 +5,14 @@
   gather_facts: yes
   
   tasks:
-    # 下載 containerd
+    - name: Install required packages
+      apt:
+        name:
+          - jq
+          - curl
+        state: present
+        update_cache: yes
+
     - name: Download containerd binary
       get_url:
         url: "https://github.com/containerd/containerd/releases/download/v{{ containerd_version }}/containerd-{{ containerd_version }}-linux-amd64.tar.gz"
