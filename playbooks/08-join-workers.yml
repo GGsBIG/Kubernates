@@ -1,28 +1,25 @@
 ---
-- name: Stage 8 - Join Worker Nodes
+- name: "Stage 8: Join Worker Nodes"
   hosts: workers
   become: yes
+  gather_facts: yes
+  
   tasks:
-    - name: Wait for control plane to be ready
-      wait_for:
-        port: 6443
-        host: "10.10.7.236"
-        delay: 10
-        timeout: 300
-        
-    - name: Join worker nodes
-      command: "{{ hostvars['master-01']['worker_join_command'] }}"
-      register: join_result
-      until: join_result.rc == 0
-      retries: 3
-      delay: 30
-      
-    - name: Verify worker node joined
-      shell: kubectl get nodes {{ inventory_hostname }}
-      environment:
-        KUBECONFIG: /etc/kubernetes/admin.conf
-      delegate_to: master-01
-      register: node_status
-      until: node_status.rc == 0
-      retries: 10
-      delay: 30
+    - name: Read worker join command from local file
+      slurp:
+        src: /tmp/worker_join_command
+      register: worker_join_command_file
+      delegate_to: localhost
+
+    - name: Set worker join command variable
+      set_fact:
+        worker_join_command: "{{ worker_join_command_file.content | b64decode | trim }}"
+
+    - name: Check if node is already part of cluster
+      stat:
+        path: /etc/kubernetes/kubelet.conf
+      register: kubelet_conf
+
+    - name: Join worker node to cluster
+      shell: "{{ worker_join_command }}"
+      when: not kubelet_conf.stat.exists

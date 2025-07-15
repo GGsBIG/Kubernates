@@ -1,55 +1,57 @@
 ---
-- name: Stage 7 - Join Master Nodes
-  hosts: masters:!first_master
+- name: "Stage 7: Join Additional Master Nodes"
+  hosts: masters[1:]
   become: yes
+  gather_facts: yes
+  
   tasks:
-    - name: Wait for first master to be ready
-      wait_for:
-        port: 6443
-        host: "10.10.7.236"
-        delay: 10
-        timeout: 300
-        
-    - name: Join master nodes
-      command: "{{ hostvars['master-01']['master_join_command'] }}"
-      register: join_result
-      until: join_result.rc == 0
-      retries: 3
-      delay: 30
-      
+    - name: Read master join command from local file
+      slurp:
+        src: /tmp/master_join_command
+      register: master_join_command_file
+      delegate_to: localhost
+
+    - name: Set master join command variable
+      set_fact:
+        master_join_command: "{{ master_join_command_file.content | b64decode | trim }}"
+
+    - name: Check if node is already part of cluster
+      stat:
+        path: /etc/kubernetes/kubelet.conf
+      register: kubelet_conf
+
+    - name: Join master node to cluster
+      shell: "{{ master_join_command }}"
+      when: not kubelet_conf.stat.exists
+
     - name: Create .kube directory for root
       file:
         path: /root/.kube
         state: directory
-        
-    - name: Copy admin.conf to root's kube config
+        mode: '0755'
+
+    - name: Copy admin.conf to root's .kube/config
       copy:
         src: /etc/kubernetes/admin.conf
         dest: /root/.kube/config
         remote_src: yes
-        
+        owner: root
+        group: root
+        mode: '0644'
+
     - name: Create .kube directory for ansible user
       file:
-        path: /home/{{ ansible_user }}/.kube
+        path: "/home/{{ ansible_user }}/.kube"
         state: directory
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
-      when: ansible_user != 'root'
-        
-    - name: Copy admin.conf to ansible user's kube config
+        mode: '0755'
+
+    - name: Copy admin.conf to ansible user's .kube/config
       copy:
         src: /etc/kubernetes/admin.conf
-        dest: /home/{{ ansible_user }}/.kube/config
+        dest: "/home/{{ ansible_user }}/.kube/config"
+        remote_src: yes
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
-        remote_src: yes
-      when: ansible_user != 'root'
-        
-    - name: Verify master node joined
-      shell: kubectl get nodes {{ inventory_hostname }}
-      environment:
-        KUBECONFIG: /etc/kubernetes/admin.conf
-      register: node_status
-      until: node_status.rc == 0
-      retries: 10
-      delay: 30
+        mode: '0644'
