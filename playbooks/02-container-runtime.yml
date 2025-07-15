@@ -76,11 +76,10 @@
         mode: '0755'
 
     - name: Download CNI plugins
-      shell: |
-        curl -sL "$(curl -sL https://api.github.com/repos/containernetworking/plugins/releases/latest | \
-        jq -r '.assets[].browser_download_url' | grep 'linux-amd64.*tgz')" -o ~/cni-plugins.tgz
-      args:
-        creates: ~/cni-plugins.tgz
+      get_url:
+        url: "https://github.com/containernetworking/plugins/releases/download/v1.6.1/cni-plugins-linux-amd64-v1.6.1.tgz"
+        dest: "~/cni-plugins.tgz"
+        mode: '0644'
 
     - name: Extract CNI plugins
       unarchive:
